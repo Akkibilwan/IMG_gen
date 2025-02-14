@@ -1,25 +1,47 @@
 import streamlit as st
-import requests
-from PIL import Image
-import io
+import openai
 import base64
-import certifi
+import requests
+import io
+from PIL import Image
 
-# Freepik API Key (Replace with your actual key)
-FREEPIK_API_KEY = "FPSX78fc16b4e4cc4cb18d14771130076b61"
+# OpenAI API Key
+OPENAI_API_KEY = "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"
 
-# Freepik Image-to-Image API Endpoint (Verify this is correct)
-FREEPIK_API_URL = "https://api.freepik.com/v1/image-to-image"
-
-# Function to encode image to base64
+# Function to encode image to Base64
 def encode_image(image):
     buffered = io.BytesIO()
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
+# Function to generate image using OpenAI DALL·E 3
+def generate_image(prompt, image):
+    encoded_image = encode_image(image)
+
+    headers = {
+        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    payload = {
+        "model": "dall-e-3",
+        "prompt": prompt,
+        "image": encoded_image,
+        "size": "1024x1024",
+        "n": 1
+    }
+
+    response = requests.post("https://api.openai.com/v1/images/generations", headers=headers, json=payload)
+
+    if response.status_code == 200:
+        image_url = response.json()["data"][0]["url"]
+        return image_url
+    else:
+        return f"Error: {response.status_code} - {response.text}"
+
 # Streamlit UI
-st.title("🖼️ Freepik Image-to-Image Generator")
-st.write("Upload an image and enter a prompt to generate a modified version using Freepik API.")
+st.title("🖼️ DALL·E 3 Image-to-Image Generator")
+st.write("Upload an image and enter a prompt to modify it using OpenAI's DALL·E 3.")
 
 # File uploader
 uploaded_image = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png"])
@@ -29,37 +51,11 @@ if uploaded_image and prompt:
     image = Image.open(uploaded_image)
     st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    encoded_image = encode_image(image)
-
-    payload = {
-        "api_key": FREEPIK_API_KEY,
-        "image": encoded_image,
-        "prompt": prompt
-    }
-
     if st.button("Generate Image"):
         with st.spinner("Generating image..."):
-            try:
-                response = requests.post(
-                    FREEPIK_API_URL,
-                    json=payload,
-                    verify=certifi.where(),  # Use certifi's SSL certificates
-                    timeout=15
-                )
+            generated_image_url = generate_image(prompt, image)
 
-                if response.status_code == 200:
-                    generated_image_data = response.json().get("image")
-
-                    if generated_image_data:
-                        generated_image = Image.open(io.BytesIO(base64.b64decode(generated_image_data)))
-                        st.image(generated_image, caption="Generated Image", use_container_width=True)
-                    else:
-                        st.error("Error: No image data received from Freepik API.")
-                else:
-                    st.error(f"API Error: {response.status_code} - {response.text}")
-
-            except requests.exceptions.SSLError as ssl_error:
-                st.error(f"SSL Error: {ssl_error}\n\nTry updating SSL certificates.")
-
-            except requests.exceptions.RequestException as e:
-                st.error(f"Network Error: {e}")
+            if generated_image_url.startswith("http"):
+                st.image(generated_image_url, caption="Generated Image", use_container_width=True)
+            else:
+                st.error(generated_image_url)
