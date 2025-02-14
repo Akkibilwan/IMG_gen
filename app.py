@@ -8,10 +8,10 @@ import certifi
 # Freepik API Key (Replace with your actual key)
 FREEPIK_API_KEY = "FPSX78fc16b4e4cc4cb18d14771130076b61"
 
-# Freepik Image-to-Image API Endpoint (Ensure this is correct)
+# Freepik Image-to-Image API Endpoint (Verify this is correct)
 FREEPIK_API_URL = "https://api.freepik.com/v1/image-to-image"
 
-# Function to encode image to base64 for API request
+# Function to encode image to base64
 def encode_image(image):
     buffered = io.BytesIO()
     image.save(buffered, format="PNG")
@@ -27,27 +27,23 @@ prompt = st.text_area("Enter a prompt to modify the image", "Make the person smi
 
 if uploaded_image and prompt:
     image = Image.open(uploaded_image)
-    st.image(image, caption="Uploaded Image", use_container_width=True)  # ✅ FIXED DEPRECATION WARNING
+    st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    # Convert to Base64
     encoded_image = encode_image(image)
 
-    # API request payload
     payload = {
         "api_key": FREEPIK_API_KEY,
         "image": encoded_image,
         "prompt": prompt
     }
 
-    # Generate Image Button
     if st.button("Generate Image"):
         with st.spinner("Generating image..."):
             try:
-                # ✅ Use certifi for proper SSL verification
                 response = requests.post(
-                    FREEPIK_API_URL, 
-                    json=payload, 
-                    verify=certifi.where(),  # ✅ FIXED SSL ERROR
+                    FREEPIK_API_URL,
+                    json=payload,
+                    verify=certifi.where(),  # Use certifi's SSL certificates
                     timeout=15
                 )
 
@@ -55,7 +51,6 @@ if uploaded_image and prompt:
                     generated_image_data = response.json().get("image")
 
                     if generated_image_data:
-                        # Decode the Base64 image from the API response
                         generated_image = Image.open(io.BytesIO(base64.b64decode(generated_image_data)))
                         st.image(generated_image, caption="Generated Image", use_container_width=True)
                     else:
@@ -63,9 +58,8 @@ if uploaded_image and prompt:
                 else:
                     st.error(f"API Error: {response.status_code} - {response.text}")
 
-            except requests.exceptions.SSLError:
-                st.error("SSL Error: Unable to establish a secure connection. Please check your API endpoint.")
+            except requests.exceptions.SSLError as ssl_error:
+                st.error(f"SSL Error: {ssl_error}\n\nTry updating SSL certificates.")
 
             except requests.exceptions.RequestException as e:
                 st.error(f"Network Error: {e}")
-
