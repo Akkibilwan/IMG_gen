@@ -3,11 +3,20 @@ import openai
 import base64
 import requests
 import io
+import os
 from PIL import Image
+from dotenv import load_dotenv
 import certifi
 
-# OpenAI API Key (Replace with your actual key)
-OPENAI_API_KEY = "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"
+# Load environment variables
+load_dotenv()
+
+# Retrieve OpenAI API Key securely
+OPENAI_API_KEY = os.getenv("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")
+
+if not OPENAI_API_KEY:
+    st.error("API key not found! Set OPENAI_API_KEY as an environment variable.")
+    st.stop()
 
 # Function to encode image to Base64
 def encode_image(image):
@@ -15,7 +24,7 @@ def encode_image(image):
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# Function to generate image using OpenAI DALL·E 3
+# Function to generate an image using OpenAI DALL·E 3
 def generate_image(prompt, image):
     encoded_image = encode_image(image)
 
@@ -37,21 +46,23 @@ def generate_image(prompt, image):
             "https://api.openai.com/v1/images/generations",
             headers=headers,
             json=payload,
-            verify=certifi.where(),  # ✅ FIXED SSL ISSUE
+            verify=certifi.where(),  # ✅ FIXED SSL ISSUES
             timeout=15
         )
 
         if response.status_code == 200:
             image_url = response.json()["data"][0]["url"]
             return image_url
+        elif response.status_code == 401:
+            return "⚠️ Error: Invalid API Key! Check your OpenAI API key."
         else:
-            return f"Error: {response.status_code} - {response.text}"
+            return f"⚠️ API Error: {response.status_code} - {response.text}"
 
     except requests.exceptions.SSLError as ssl_error:
-        return f"SSL Error: {ssl_error}\n\nTry updating SSL certificates."
+        return f"⚠️ SSL Error: {ssl_error}. Try updating SSL certificates."
 
     except requests.exceptions.RequestException as e:
-        return f"Network Error: {e}"
+        return f"⚠️ Network Error: {e}"
 
 # Streamlit UI
 st.title("🖼️ DALL·E 3 Image-to-Image Generator")
