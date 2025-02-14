@@ -4,8 +4,9 @@ import base64
 import requests
 import io
 from PIL import Image
+import certifi
 
-# OpenAI API Key
+# OpenAI API Key (Replace with your actual key)
 OPENAI_API_KEY = "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"
 
 # Function to encode image to Base64
@@ -31,13 +32,26 @@ def generate_image(prompt, image):
         "n": 1
     }
 
-    response = requests.post("https://api.openai.com/v1/images/generations", headers=headers, json=payload)
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/images/generations",
+            headers=headers,
+            json=payload,
+            verify=certifi.where(),  # ✅ FIXED SSL ISSUE
+            timeout=15
+        )
 
-    if response.status_code == 200:
-        image_url = response.json()["data"][0]["url"]
-        return image_url
-    else:
-        return f"Error: {response.status_code} - {response.text}"
+        if response.status_code == 200:
+            image_url = response.json()["data"][0]["url"]
+            return image_url
+        else:
+            return f"Error: {response.status_code} - {response.text}"
+
+    except requests.exceptions.SSLError as ssl_error:
+        return f"SSL Error: {ssl_error}\n\nTry updating SSL certificates."
+
+    except requests.exceptions.RequestException as e:
+        return f"Network Error: {e}"
 
 # Streamlit UI
 st.title("🖼️ DALL·E 3 Image-to-Image Generator")
