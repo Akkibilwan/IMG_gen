@@ -3,20 +3,24 @@ import requests
 from PIL import Image
 import io
 import base64
+import urllib3
+
+# Disable SSL warnings
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Freepik API Key (Replace with your actual key)
 FREEPIK_API_KEY = "FPSX78fc16b4e4cc4cb18d14771130076b61"
 
-# Freepik Image-to-Image API Endpoint (Assuming they support this feature)
+# Freepik Image-to-Image API Endpoint (Ensure it's correct)
 FREEPIK_API_URL = "https://api.freepik.com/v1/image-to-image"
 
-# Function to encode image to base64 for API
+# Function to encode image to base64 for API request
 def encode_image(image):
     buffered = io.BytesIO()
     image.save(buffered, format="PNG")
     return base64.b64encode(buffered.getvalue()).decode()
 
-# Streamlit App UI
+# Streamlit UI
 st.title("🖼️ Freepik Image-to-Image Generator")
 st.write("Upload an image and enter a prompt to generate a modified version using Freepik API.")
 
@@ -41,17 +45,23 @@ if uploaded_image and prompt:
     # Generate Image Button
     if st.button("Generate Image"):
         with st.spinner("Generating image..."):
-            response = requests.post(FREEPIK_API_URL, json=payload)
+            try:
+                response = requests.post(FREEPIK_API_URL, json=payload, verify=False, timeout=15)
 
-            if response.status_code == 200:
-                generated_image_data = response.json().get("image")
+                if response.status_code == 200:
+                    generated_image_data = response.json().get("image")
 
-                if generated_image_data:
-                    # Decode the Base64 image from the API response
-                    generated_image = Image.open(io.BytesIO(base64.b64decode(generated_image_data)))
-                    st.image(generated_image, caption="Generated Image", use_column_width=True)
+                    if generated_image_data:
+                        # Decode the Base64 image from the API response
+                        generated_image = Image.open(io.BytesIO(base64.b64decode(generated_image_data)))
+                        st.image(generated_image, caption="Generated Image", use_column_width=True)
+                    else:
+                        st.error("Error: No image data received from Freepik API.")
                 else:
-                    st.error("Error: No image data received from Freepik API.")
-            else:
-                st.error(f"API Error: {response.status_code} - {response.text}")
+                    st.error(f"API Error: {response.status_code} - {response.text}")
 
+            except requests.exceptions.SSLError:
+                st.error("SSL Error: Unable to establish a secure connection. Please check your API endpoint.")
+            
+            except requests.exceptions.RequestException as e:
+                st.error(f"Network Error: {e}")
